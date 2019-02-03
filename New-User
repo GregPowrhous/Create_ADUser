@@ -1,0 +1,390 @@
+#####
+# Create AD User
+
+function New-User
+{
+    param ([string]$Title = 'Active Directory & Exchange Related Services -- CREATE an Active Directory domain User')
+
+    cls
+
+    Write-Host -ForegroundColor Magenta "================ " -NoNewline
+    Write-Host -ForegroundColor Magenta " $Title " -NoNewline
+    Write-Host -ForegroundColor Magenta " ================" `n
+
+    do
+        {# open do
+
+        $samAccount_copy = Read-Host "What is the name of a curremt user you wish to copy membership from? (SamAccountName; ex. flastname)" 
+
+            try
+                {# open try
+        
+                    $samAccount_copyCheck = $null
+
+                    $samAccount_copyCheck = Get-ADUser $samAccount_copy -ErrorAction Stop
+
+                    cls
+
+                    Write-Host -ForegroundColor Magenta "================ " -NoNewline
+                    Write-Host -ForegroundColor Magenta " $Title " -NoNewline
+                    Write-Host -ForegroundColor Magenta " ================" `n
+
+                    Write-Host `n
+
+                    Write-Host -ForegroundColor Magenta "$samAccount_copy " -NoNewline
+                    Write-Host -ForegroundColor Cyan  "is a valid User Object. Continuing script..."
+
+                    Start-Sleep -Seconds 3
+
+                    cls
+
+                    Write-Host -ForegroundColor Magenta "================ " -NoNewline
+                    Write-Host -ForegroundColor Magenta " $Title " -NoNewline
+                    Write-Host -ForegroundColor Magenta " ================" `n
+
+                    Write-Host `n
+
+                    Write-Host -ForegroundColor Cyan "Using User Object: " -NoNewline
+                    Write-Host -ForegroundColor Magenta "$samAccount_copy" -NoNewline
+                    Write-Host -ForegroundColor Cyan " as the AD copy Object for the new User."
+
+                    Write-Host `n
+
+                }# close try
+
+            catch
+                {# open catch
+
+                    cls
+
+                    Write-Host -ForegroundColor Magenta "================ " -NoNewline
+                    Write-Host -ForegroundColor Magenta " $Title " -NoNewline
+                    Write-Host -ForegroundColor Magenta " ================" `n
+
+                    Write-Host -ForegroundColor Cyan "The Username you have entered: " -NoNewline
+                    Write-Host -ForegroundColor Magenta "$samAccount_copy" -NoNewline
+                    Write-Host -ForegroundColor Cyan " is not valid. Please enter a valid Username."
+
+                    Write-Host `n
+
+                }# close catch
+
+        }# close do
+        until ($samAccount_copyCheck)
+
+
+    $new_accountFirstN = Read-Host "What is the first name of the new user?"
+    $new_accountLastN = Read-Host "What is the last name of the new user?"
+    
+    Write-Host `n
+
+    Write-Host -ForegroundColor Cyan "Setting up AD User Object now..."
+    
+    Write-Host `n
+
+    Start-Sleep -Seconds 5
+
+    $new_samAccount = $new_accountFirstN.Substring(0,1).ToLower()+$new_accountLastN.ToLower()
+    $new_samAccountALT = $new_accountFirstN.Substring(0,2).ToLower()+$new_accountLastN.ToLower()
+    $new_DisplayName = "$new_accountLastN," + " $new_accountFirstN"
+    $new_Name = "$new_accountLastN," + " $new_accountFirstN"
+    $new_ULN = "$new_samAccount" + "@contoso.com"
+    $new_ULNalt = "$new_samAccountALT" + "contoso.com"
+    $Password = ([char[]]([char]33..[char]95) + ([char[]]([char]97..[char]126)) + 0..9 | sort {Get-Random})[0..11] -join ''
+    $new_Description = 'New User'
+    $new_OU = 'OU=,OU=,DC=contoso,DC=com' # <--- change this based on OU structure
+    $new_EnableUser = $true
+    $new_PasswordNE = $false
+    $new_CannotCP = $false
+
+
+    $ADaccount_copy = Get-ADUser $samAccount_copy -Properties MemberOf
+
+
+
+    #####
+    # Parameter Set 1
+
+    $params1 = @{
+    'SamAccountName' = $new_samAccount;
+    'Instance' = $ADaccount_copy;
+    'DisplayName' = $new_DisplayName;
+    'GivenName' = $new_accountFirstN;
+    'SurName' = $new_accountLastN;
+    'PasswordNeverExpires' = $new_PasswordNE;
+    'CannotChangePassword' = $new_CannotCP;
+    'Description' = $new_Description;
+    'Enabled' = $new_EnableUser;
+    'UserPrincipalName' = $new_ULN;
+    'AccountPassword' = (ConvertTo-SecureString -AsPlainText $Password -Force);
+    }
+    #####
+
+
+
+    #####
+    # Parameter Set 2
+
+    $params2 = @{
+    'SamAccountName' = $new_samAccountALT;
+    'Instance' = $ADaccount_copy;
+    'DisplayName' = $new_DisplayName;
+    'GivenName' = $new_accountFirstN;
+    'SurName' = $new_accountLastN;
+    'PasswordNeverExpires' = $new_PasswordNE;
+    'CannotChangePassword' = $new_CannotCP;
+    'Description' = $new_Description;
+    'Enabled' = $new_EnableUser;
+    'UserPrincipalName' = $new_ULNalt;
+    'AccountPassword' = (ConvertTo-SecureString -AsPlainText $Password -Force);
+    }
+    #####
+
+
+
+    #####
+    # Search AD to see if User Object exists; if not, continue with If statement; if User Object does exist, continue with Else statement
+
+    $searchName = $new_samAccount
+    $searcher = [ADSISearcher]"(SamAccountName=$searchName)"
+    $searchResults = $searcher.FindOne()
+
+    If ($searchResults -eq $null)
+    {
+        
+
+
+        #####
+        # create the new User Object
+
+        Write-Host -ForegroundColor Cyan "Creating AD User Object..."
+
+        Write-Host `n
+
+        New-ADUser -Name $new_Name @params1 -ChangePasswordAtLogon $true
+
+        $ADaccount_copy.MemberOf | % {Add-ADGroupMember $_ $new_samAccount}
+
+        Start-Sleep -Seconds 2
+
+        Write-Host -ForegroundColor Cyan "User Object " -NoNewline
+        Write-Host -ForegroundColor Magenta "$new_samAccount" -NoNewline
+        Write-Host -ForegroundColor Cyan " has been created!"
+
+        Write-Host `n
+
+        #####
+
+
+
+        #####
+        # Move the User Object to the correct OU
+
+        Write-Host -ForegroundColor Cyan "Moving AD User Object..."
+
+        Start-Sleep -Seconds 10
+
+        Get-ADUser $new_samAccount | Move-ADObject -TargetPath $new_OU
+
+        Write-Host `n
+
+        Write-Host -ForegroundColor Cyan "AD User Object has been moved to -- " -NoNewline
+        Write-Host -ForegroundColor Magenta "$new_OU"
+        #####
+
+
+
+        #####
+        # Start-Sleep for 20 minutes -- AD replication before proceeding with Mail Enable
+
+        For ($i=1200; $i -gt 1; $i--) {
+
+            Write-Progress -Activity "Domain Replication for AD User Object Creation" -SecondsRemaining $i
+
+            Start-Sleep 1
+
+        }
+
+            Write-Progress -Activity "Domain Replication for AD User Object Creation"  -Completed
+
+        Write-Host `n
+        #####
+
+
+
+        #####
+        # Connect to Exchange Server
+
+        $UserCredentials = Get-Credential
+
+        $Session = New-PSSession -ConfigurationName Microsoft.Exchange -ConnectionUri http://exch01.contoso.com/powershell/ -Authentication Kerberos -Credential $UserCredentials
+
+        Import-PSSession $Session -AllowClobber -DisableNameChecking
+
+        Start-Sleep -Seconds 10
+        #####
+
+
+
+        #####
+        # Create Mailbox for the User
+
+        Enable-RemoteMailbox -Identity $new_samAccount -Alias $new_samAccount -RemoteRoutingAddress $new_samAccount@contoso.mail.onmicrosoft.com
+        #####
+
+
+
+        #####
+        # Remove PS Session
+
+        Remove-PSSession -ComputerName exch01.contoso.com
+        #####
+
+
+
+        #####
+        # Wait 10 minutes for AD/Exchange Replication
+
+         For ($i=600; $i -gt 1; $i--) {
+
+            Write-Progress -Activity "Domain Replication for Exchange/Mail Object Changes" -SecondsRemaining $i
+
+            Start-Sleep 1
+
+        }
+
+            Write-Progress -Activity "Domain Replication for Exchange/Mail Object Changes" -Completed
+
+
+        Write-Host `n
+        #####
+
+
+
+        #####
+        # Connecting to Exchange Online
+
+        Set-ExecutionPolicy RemoteSigned
+
+        $credentials = Get-Credential
+
+        $Session = New-PSSession -ConfigurationName Microsoft.Exchange -ConnectionUri https://ps.outlook.com/powershell/ -Credential $credentials -Authentication Basic -AllowRedirection
+
+        Import-PSSession $Session
+
+        Connect-MsolService -Credential $credentials
+        #####
+
+
+
+        #####
+        # Find and license User
+
+        Write-Host -ForegroundColor Cyan "Gathering User information for" -NoNewline
+        Write-Host -ForegroundColor Magenta " $new_samAccount " -NoNewline
+        Write-Host -ForegroundColor Cyan "witin MS Online..."
+
+        Write-Host `n
+
+        Start-Sleep -Seconds 5
+
+        Get-MsolUser -UserPrincipalName "$new_samAccount@contoso.com"
+
+        Write-Host `n
+
+        Write-Host -ForegroundColor Cyan "Applying an E3 license to" -NoNewline
+        Write-Host -ForegroundColor Magenta " $new_samAccount..."
+
+        Set-MsolUser -UserPrincipalName "$new_samAccount@contoso.com" -UsageLocation US
+
+        Set-MsolUserLicense -UserPrincipalName "$new_samAccount@contoso.com" -AddLicenses "Contoso:ENTERPRISEPACK"
+
+        Write-Host `n
+
+        Get-MsolUser -UserPrincipalName "$new_samAccount@contoso.com" | Format-List DisplayName,Licenses
+        #####
+
+
+
+        #####
+        # Remove PS Session
+
+        Remove-PSSession -ComputerName ps.outlook.com
+        #####
+
+
+
+        #####
+        # Gather new AD Object Property information, output and save to current User folder
+
+        Write-Host -ForegroundColor Cyan "Gathering AD User Object information and saving to " -NoNewline
+        Write-Host -ForegroundColor Magenta "C:\Users\$user\" -NoNewline
+        Write-Host -ForegroundColor Cyan "..."
+
+        Start-Sleep -Seconds 5
+
+        Get-ADUser $new_samAccount -Properties * | Out-File "C:\Users\$user\newADUser_$new_samAccount"
+        #####
+
+
+
+        #####
+        # Construct email variables and message -- $new_samAccount
+
+        $From = "Ops Automation <ops@contoso.com>"
+        $To = "IT_Team@contoso.com"
+        $Attachment = "C:\Users\$user\newADUser_$new_samAccount"
+        $Subject = "New Domain User -- $new_samAccount -- AD User Object Created"
+        $Body = "This email alert is to inform you that the following new User has been created. <br><br> <i>Name</i>: <b>$new_DisplayName</b> <br> <i>Username</i>: <b>$new_samAccount</b> <br> <i>Temp Password</i>: <b>$Password</b> <br> <i>Copied User Object</i>: <b>$samAccount_copy</b> <br><br> Please see attachment for full User Object details!"
+        $SMTPserver = "contoso-com.mail.protection.outlook.com"
+
+        Write-Host `n
+
+        Write-Host -ForegroundColor Cyan "Sending confirmation email now. Please check your inbox!"
+
+        Start-Sleep -Seconds 3
+
+        Send-MailMessage -From $From -To $To -Subject $Subject -Body $Body -Attachments $Attachment -SmtpServer $SMTPserver -Priority High -BodyAsHtml
+        #####
+
+
+
+    }
+    Else
+    {
+    
+    # copy contents from If{} in here! Just replace $new_samAccoount with $new_samAccountALT
+
+    }
+
+
+
+            #####
+            # Try/Catch to look for User Object
+
+            Try
+                {
+
+                Get-ADUser -Filter {(samAccountName -like $new_SamAccountALT) -OR (samAccountName -like $new_samAccount)} -WarningAction Stop -ErrorAction Stop
+
+                Write-Output `n
+
+                Write-Host -ForegroundColor Cyan "User Object found!"
+
+                }
+            Catch
+                {
+
+                Write-Output "Could not find the User Object! See error below..."
+                                                            
+                Write-Output `n
+
+                Write-Host -ForegroundColor Red "[$($_.Exception.GetType().FullName)] - $($_.Exception.Message)"
+
+                }
+            #####
+
+
+
+}
+#####
