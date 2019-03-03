@@ -320,39 +320,6 @@ function New-User {
 
 
 
-      # Change the User's AD Email field and proxyAddresses
-
-      Write-Host -ForegroundColor Cyan "Changing the AD EmailAddress and proxyAddresses for " -NoNewline
-      Write-Host -ForegroundColor Magenta "$new_samAccount" -NoNewline
-      Write-Host -ForegroundColor Cyan " now..." `n
-      Start-Sleep -Seconds 3
-
-      Set-ADUser -Identity $new_samAccount -EmailAddress $new_samAccount@contoso.com
-
-      Write-Host -ForegroundColor Cyan "EmailAddress changed..." `n
-      Start-Sleep -Seconds 3
-
-      $SMTPContosoP = "SMTP:" + $new_samAccount + "@Contoso1.com"
-      $smtpContosoA = "smtp:" + $new_samAccount + "@Contoso1.com"
-      $SMTPcontosoP = "SMTP:" + $new_samAccount + "@Contoso2.com"
-
-      # Remove the PRIMARY SMTP ADDRESS "@Contoso.com"
-
-      Set-ADUser $new_samAccount -Remove @{'ProxyAddresses'=$SMTPContosoP}
-
-      # Add the old PRIMARY as an ALIAS
-
-      Set-ADUser $new_samAccount -Add @{'ProxyAddresses'=$smtpContosoA}
-
-      # Add the new PRIMARY SMTP ADDRESS "@contoso.com"
-
-      Set-ADUser $new_samAccount -Add @{'ProxyAddresses'=$SMTPcontosoP}
-
-      Write-Host -ForegroundColor Cyan "proxyAddresses changed..." `n
-      Start-Sleep -Seconds 10
-
-
-
       # Create $reportDirectory if necessary and gather the new User's AD object information
     
       $reportDate = (Get-Date).ToString("yyyy-MM-dd")
